@@ -115,7 +115,10 @@ function pointLineDistance(point, start, end) {
 		return distance(point, start);
 	}
 
-	const parameter = Math.max(0, Math.min(1, dot(subtract(point, start), chord) / lengthSquared));
+	const parameter = Math.max(
+		0,
+		Math.min(1, dot(subtract(point, start), chord) / lengthSquared),
+	);
 	return distance(point, lerp(start, end, parameter));
 }
 
@@ -572,8 +575,10 @@ function flattenForFit(curve, flatness, points, depth = 0) {
 	}
 	if (depth === 20) return false;
 	const [left, right] = splitCubic(curve);
-	return flattenForFit(left, flatness, points, depth + 1)
-		&& flattenForFit(right, flatness, points, depth + 1);
+	return (
+		flattenForFit(left, flatness, points, depth + 1) &&
+		flattenForFit(right, flatness, points, depth + 1)
+	);
 }
 
 function sampleContour(path, flatness) {
@@ -581,17 +586,25 @@ function sampleContour(path, flatness) {
 	const events = [];
 	for (let index = 0; index < path.length; index++) {
 		const segment = path[index];
-		const roots = [...new Set(['x', 'y'].flatMap((axis) =>
-			interiorAxisExtrema(segment, axis).map((entry) => entry.parameter),
-		))].sort((first, second) => first - second);
+		const roots = [
+			...new Set(
+				['x', 'y'].flatMap((axis) =>
+					interiorAxisExtrema(segment, axis).map((entry) => entry.parameter),
+				),
+			),
+		].sort((first, second) => first - second);
 		let remainder = effectiveControls(segment);
 		let previous = 0;
 		for (const parameter of [...roots, 1]) {
-			const [piece, next] = parameter === 1
-				? [remainder, null]
-				: splitCubic(remainder, (parameter - previous) / (1 - previous));
+			const [piece, next] =
+				parameter === 1
+					? [remainder, null]
+					: splitCubic(remainder, (parameter - previous) / (1 - previous));
 			if (points.length === 0) points.push(clonePoint(piece[0]));
-			events.push({ index: points.length - 1, angle: previous === 0 ? joinAngle(path, index) : 0 });
+			events.push({
+				index: points.length - 1,
+				angle: previous === 0 ? joinAngle(path, index) : 0,
+			});
 			if (!flattenForFit(piece, flatness, points)) return null;
 			remainder = next;
 			previous = parameter;
@@ -601,7 +614,8 @@ function sampleContour(path, flatness) {
 	const unique = [];
 	const indices = [];
 	for (const point of points) {
-		if (!unique.length || distance(point, unique.at(-1)) > EPSILON) unique.push(point);
+		if (!unique.length || distance(point, unique.at(-1)) > EPSILON)
+			unique.push(point);
 		indices.push(unique.length - 1);
 	}
 	if (unique.length > 1 && distance(unique[0], unique.at(-1)) <= EPSILON) {
@@ -610,7 +624,10 @@ function sampleContour(path, flatness) {
 			if (indices[index] === unique.length) indices[index] = 0;
 		}
 	}
-	return { points: unique, events: events.map((event) => ({ ...event, index: indices[event.index] })) };
+	return {
+		points: unique,
+		events: events.map((event) => ({ ...event, index: indices[event.index] })),
+	};
 }
 
 function arcLengths(points) {
@@ -628,7 +645,8 @@ function pointAlong(points, index, direction, reach, closed = false) {
 		if (!closed && (nextIndex < 0 || nextIndex >= points.length)) break;
 		const next = points[(nextIndex + points.length) % points.length];
 		const length = distance(current, next);
-		if (length >= reach && length > 0) return lerp(current, next, reach / length);
+		if (length >= reach && length > 0)
+			return lerp(current, next, reach / length);
 		reach -= length;
 		current = next;
 	}
@@ -639,26 +657,46 @@ function contourFeatures(contour, options) {
 	const { points, events } = contour;
 	const lengths = arcLengths([...points, points[0]]);
 	const perimeter = lengths.at(-1);
-	const support = Math.min(Math.max(options.tolerance * 2, perimeter / 1000), perimeter / 32);
+	const support = Math.min(
+		Math.max(options.tolerance * 2, perimeter / 1000),
+		perimeter / 32,
+	);
 	const threshold = options.cornerAngleThreshold;
 	const anchors = new Map();
 	const corners = [];
 	for (const event of events) {
 		if (event.angle === null || event.angle < threshold) continue;
-		const incoming = normalize(subtract(points[event.index], pointAlong(points, event.index, -1, support, true)));
-		const outgoing = normalize(subtract(pointAlong(points, event.index, 1, support, true), points[event.index]));
+		const incoming = normalize(
+			subtract(
+				points[event.index],
+				pointAlong(points, event.index, -1, support, true),
+			),
+		);
+		const outgoing = normalize(
+			subtract(
+				pointAlong(points, event.index, 1, support, true),
+				points[event.index],
+			),
+		);
 		if (!incoming || !outgoing) continue;
-		const angle = Math.acos(Math.max(-1, Math.min(1, dot(incoming, outgoing)))) * 180 / Math.PI;
+		const angle =
+			(Math.acos(Math.max(-1, Math.min(1, dot(incoming, outgoing)))) * 180) /
+			Math.PI;
 		if (angle + 1e-7 >= threshold) corners.push({ index: event.index, angle });
 	}
-	for (const corner of corners.sort((first, second) => second.angle - first.angle || first.index - second.index)) {
+	for (const corner of corners.sort(
+		(first, second) => second.angle - first.angle || first.index - second.index,
+	)) {
 		const nearCorner = [...anchors.keys()].some((index) => {
 			const separation = Math.abs(lengths[index] - lengths[corner.index]);
 			return Math.min(separation, perimeter - separation) < support / 2;
 		});
-		if (!nearCorner) anchors.set(corner.index, { corner: true, axes: new Set() });
+		if (!nearCorner)
+			anchors.set(corner.index, { corner: true, axes: new Set() });
 	}
-	const eventIndices = [...new Set(events.map((event) => event.index))].sort((first, second) => first - second);
+	const eventIndices = [...new Set(events.map((event) => event.index))].sort(
+		(first, second) => first - second,
+	);
 	const eventPoints = eventIndices.map((index) => points[index]);
 	if (options.preserveExtrema) {
 		for (const axis of ['x', 'y']) {
@@ -667,15 +705,24 @@ function contourFeatures(contour, options) {
 			const maximum = Math.max(...values);
 			for (let index = 0; index < eventPoints.length; index++) {
 				const current = eventPoints[index];
-				const previous = eventPoints[(index - 1 + eventPoints.length) % eventPoints.length];
+				const previous =
+					eventPoints[(index - 1 + eventPoints.length) % eventPoints.length];
 				const next = eventPoints[(index + 1) % eventPoints.length];
 				const type = axisExtremumType(previous, current, next, axis);
-				const global = index === values.indexOf(minimum) || index === values.indexOf(maximum);
-				const significant = type !== null && localAxisProminence(eventPoints, index, axis, type) > options.tolerance;
+				const global =
+					index === values.indexOf(minimum) ||
+					index === values.indexOf(maximum);
+				const significant =
+					type !== null &&
+					localAxisProminence(eventPoints, index, axis, type) >
+						options.tolerance;
 				if (!global && !significant) continue;
 				if (!global && current[axis] === previous[axis]) continue;
 				const pointIndex = eventIndices[index];
-				const anchor = anchors.get(pointIndex) ?? { corner: false, axes: new Set() };
+				const anchor = anchors.get(pointIndex) ?? {
+					corner: false,
+					axes: new Set(),
+				};
 				anchor.axes.add(axis);
 				anchors.set(pointIndex, anchor);
 			}
@@ -683,14 +730,22 @@ function contourFeatures(contour, options) {
 	}
 	let seam = 0;
 	for (let index = 1; index < points.length; index++) {
-		if (points[index].x < points[seam].x || (points[index].x === points[seam].x && points[index].y < points[seam].y)) seam = index;
+		if (
+			points[index].x < points[seam].x ||
+			(points[index].x === points[seam].x && points[index].y < points[seam].y)
+		)
+			seam = index;
 	}
 	if (!anchors.size) anchors.set(seam, { corner: false, axes: new Set() });
 	if (anchors.size === 1) {
 		const first = [...anchors.keys()][0];
 		let opposite = first;
 		for (let index = 0; index < points.length; index++) {
-			if (distance(points[first], points[index]) > distance(points[first], points[opposite])) opposite = index;
+			if (
+				distance(points[first], points[index]) >
+				distance(points[first], points[opposite])
+			)
+				opposite = index;
 		}
 		anchors.set(opposite, { corner: false, axes: new Set() });
 	}
@@ -706,8 +761,17 @@ function nearestOnPolyline(point, polyline) {
 		const deltaX = end.x - start.x;
 		const deltaY = end.y - start.y;
 		const lengthSquared = deltaX * deltaX + deltaY * deltaY;
-		const parameter = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1,
-			((point.x - start.x) * deltaX + (point.y - start.y) * deltaY) / lengthSquared));
+		const parameter =
+			lengthSquared === 0
+				? 0
+				: Math.max(
+						0,
+						Math.min(
+							1,
+							((point.x - start.x) * deltaX + (point.y - start.y) * deltaY) /
+								lengthSquared,
+						),
+					);
 		const deltaPointX = point.x - start.x - parameter * deltaX;
 		const deltaPointY = point.y - start.y - parameter * deltaY;
 		const candidate = deltaPointX * deltaPointX + deltaPointY * deltaPointY;
@@ -729,7 +793,15 @@ function directedPolylineCheck(source, target, limit) {
 		return { accepted: false, index: worst, nearest: distances[worst].index };
 	}
 	for (let index = 1; index < source.length; index++) {
-		const pending = [{ start: source[index - 1], end: source[index], left: distances[index - 1].error, right: distances[index].error, depth: 0 }];
+		const pending = [
+			{
+				start: source[index - 1],
+				end: source[index],
+				left: distances[index - 1].error,
+				right: distances[index].error,
+				depth: 0,
+			},
+		];
 		while (pending.length) {
 			const interval = pending.pop();
 			const length = distance(interval.start, interval.end);
@@ -741,8 +813,20 @@ function directedPolylineCheck(source, target, limit) {
 				return { accepted: false, index, nearest: nearest.index };
 			}
 			pending.push(
-				{ start: interval.start, end: midpoint, left: interval.left, right: nearest.error, depth: interval.depth + 1 },
-				{ start: midpoint, end: interval.end, left: nearest.error, right: interval.right, depth: interval.depth + 1 },
+				{
+					start: interval.start,
+					end: midpoint,
+					left: interval.left,
+					right: nearest.error,
+					depth: interval.depth + 1,
+				},
+				{
+					start: midpoint,
+					end: interval.end,
+					left: nearest.error,
+					right: interval.right,
+					depth: interval.depth + 1,
+				},
 			);
 		}
 	}
@@ -752,14 +836,25 @@ function directedPolylineCheck(source, target, limit) {
 function curveInBounds(curve, bounds) {
 	if (!bounds) return true;
 	for (const axis of ['x', 'y']) {
-		const values = [curve[0][axis], curve[3][axis], ...interiorAxisExtrema(curve, axis).map((entry) => entry.value)];
-		if (Math.min(...values) < bounds[axis][0] - EPSILON || Math.max(...values) > bounds[axis][1] + EPSILON) return false;
+		const values = [
+			curve[0][axis],
+			curve[3][axis],
+			...interiorAxisExtrema(curve, axis).map((entry) => entry.value),
+		];
+		if (
+			Math.min(...values) < bounds[axis][0] - EPSILON ||
+			Math.max(...values) > bounds[axis][1] + EPSILON
+		)
+			return false;
 	}
 	return true;
 }
 
 function validateCurve(points, curve, settings) {
-	if (!curve.every((point) => point === false || isPoint(point)) || !curveInBounds(curve, settings.bounds)) {
+	if (
+		!curve.every((point) => point === false || isPoint(point)) ||
+		!curveInBounds(curve, settings.bounds)
+	) {
 		return { accepted: false, index: Math.floor(points.length / 2) };
 	}
 	const candidate = [curve[0]];
@@ -770,7 +865,9 @@ function validateCurve(points, curve, settings) {
 	const forward = directedPolylineCheck(points, candidate, limit);
 	if (!forward.accepted) return forward;
 	const reverse = directedPolylineCheck(candidate, points, limit);
-	return reverse.accepted ? forward : { accepted: false, index: reverse.nearest };
+	return reverse.accepted
+		? forward
+		: { accepted: false, index: reverse.nearest };
 }
 
 function uniformSamples(points) {
@@ -779,46 +876,83 @@ function uniformSamples(points) {
 	const samples = [points[0]];
 	let cursor = 1;
 	for (let index = 1; index < 64; index++) {
-		const position = total * index / 64;
+		const position = (total * index) / 64;
 		while (cursor < points.length - 1 && lengths[cursor] < position) cursor++;
 		const length = lengths[cursor] - lengths[cursor - 1];
-		samples.push(lerp(points[cursor - 1], points[cursor], length === 0 ? 0 : (position - lengths[cursor - 1]) / length));
+		samples.push(
+			lerp(
+				points[cursor - 1],
+				points[cursor],
+				length === 0 ? 0 : (position - lengths[cursor - 1]) / length,
+			),
+		);
 	}
 	samples.push(points.at(-1));
 	return samples;
 }
 
 function featureTangent(points, index, direction, support, feature) {
-	let vector = subtract(pointAlong(points, index, direction, support), points[index]);
+	let vector = subtract(
+		pointAlong(points, index, direction, support),
+		points[index],
+	);
 	if (!feature.corner) {
 		for (const axis of feature.axes) vector[axis] = 0;
 	}
-	return normalize(vector) ?? normalize(subtract(points[direction === 1 ? points.length - 1 : 0], points[index]));
+	return (
+		normalize(vector) ??
+		normalize(
+			subtract(points[direction === 1 ? points.length - 1 : 0], points[index]),
+		)
+	);
 }
 
-function fitContourSpan(points, leftTangent, rightTangent, settings, depth = 0) {
+function fitContourSpan(
+	points,
+	leftTangent,
+	rightTangent,
+	settings,
+	depth = 0,
+) {
 	const line = [clonePoint(points[0]), false, false, clonePoint(points.at(-1))];
 	const chord = normalize(subtract(points.at(-1), points[0]));
-	if (chord && leftTangent && rightTangent
-		&& dot(chord, leftTangent) >= 1 - EPSILON
-		&& dot(chord, rightTangent) <= -1 + EPSILON
-		&& validateCurve(points, line, settings).accepted) return [line];
+	if (
+		chord &&
+		leftTangent &&
+		rightTangent &&
+		dot(chord, leftTangent) >= 1 - EPSILON &&
+		dot(chord, rightTangent) <= -1 + EPSILON &&
+		validateCurve(points, line, settings).accepted
+	)
+		return [line];
 	if (depth === 32 || !leftTangent || !rightTangent) return null;
 	const samples = uniformSamples(points);
 	let parameters = chordLengthParameters(samples);
 	let splitIndex = Math.floor(points.length / 2);
 	for (let iteration = 0; iteration <= settings.maxIterations; iteration++) {
-		const curve = fitCubicToPoints(samples, leftTangent, rightTangent, parameters);
+		const curve = fitCubicToPoints(
+			samples,
+			leftTangent,
+			rightTangent,
+			parameters,
+		);
 		const validation = validateCurve(points, curve, settings);
 		if (validation.accepted) return [curve];
 		splitIndex = validation.index;
 		parameters = reparameterize(samples, curve, parameters);
 	}
 	if (points.length < 3) {
-		let handleLength = Math.min(distance(points[0], points.at(-1)) / 3, settings.tolerance / 4);
+		let handleLength = Math.min(
+			distance(points[0], points.at(-1)) / 3,
+			settings.tolerance / 4,
+		);
 		for (let attempt = 0; attempt < 16; attempt++) {
-			const curve = [clonePoint(points[0]), add(points[0], scale(leftTangent, handleLength)),
-				add(points.at(-1), scale(rightTangent, handleLength)), clonePoint(points.at(-1))];
+			const curve = [
+				clonePoint(points[0]),
+				add(points[0], scale(leftTangent, handleLength)),
+				add(points.at(-1), scale(rightTangent, handleLength)),
+				clonePoint(points.at(-1)),
+			];
 			if (validateCurve(points, curve, settings).accepted) return [curve];
 			handleLength /= 2;
 		}
@@ -830,16 +964,32 @@ function fitContourSpan(points, leftTangent, rightTangent, settings, depth = 0) 
 	const direction = subtract(forward, backward);
 	if (settings.bounds) {
 		for (const axis of ['x', 'y']) {
-			if (settings.bounds[axis].some((bound) => Math.abs(points[splitIndex][axis] - bound) <= EPSILON)) {
+			if (
+				settings.bounds[axis].some(
+					(bound) => Math.abs(points[splitIndex][axis] - bound) <= EPSILON,
+				)
+			) {
 				direction[axis] = 0;
 			}
 		}
 	}
 	const tangent = normalize(direction);
 	if (!tangent) return null;
-	const left = fitContourSpan(points.slice(0, splitIndex + 1), leftTangent, scale(tangent, -1), settings, depth + 1);
+	const left = fitContourSpan(
+		points.slice(0, splitIndex + 1),
+		leftTangent,
+		scale(tangent, -1),
+		settings,
+		depth + 1,
+	);
 	if (!left) return null;
-	const right = fitContourSpan(points.slice(splitIndex), tangent, rightTangent, settings, depth + 1);
+	const right = fitContourSpan(
+		points.slice(splitIndex),
+		tangent,
+		rightTangent,
+		settings,
+		depth + 1,
+	);
 	return right ? [...left, ...right] : null;
 }
 
@@ -861,30 +1011,52 @@ export function simplifyPath(path, options) {
 
 	detectCorners(path, settings.cornerAngleThreshold);
 	if (settings.tolerance === 0) return path.map(cloneSegment);
-	settings.cornerAngleThreshold = settings.cornerAngleThreshold === 'auto'
-		? calculateCornerAngleThreshold(path) : settings.cornerAngleThreshold;
+	settings.cornerAngleThreshold =
+		settings.cornerAngleThreshold === 'auto'
+			? calculateCornerAngleThreshold(path)
+			: settings.cornerAngleThreshold;
 	settings.flatness = settings.tolerance / 16;
-	const geometry = path.filter((segment) => effectiveControls(segment).some((point) =>
-		point.x !== segment[0].x || point.y !== segment[0].y,
-	));
+	const geometry = path.filter((segment) =>
+		effectiveControls(segment).some(
+			(point) => point.x !== segment[0].x || point.y !== segment[0].y,
+		),
+	);
 	const contour = sampleContour(geometry, settings.flatness);
 	if (!contour || contour.points.length < 3) return path.map(cloneSegment);
 	const { points } = contour;
 	const { anchors, support } = contourFeatures(contour, settings);
 	settings.support = support;
-	settings.bounds = settings.preserveExtrema ? {
-		x: [Math.min(...points.map((point) => point.x)), Math.max(...points.map((point) => point.x))],
-		y: [Math.min(...points.map((point) => point.y)), Math.max(...points.map((point) => point.y))],
-	} : null;
-	const boundaries = [...anchors.keys()].sort((first, second) => first - second);
+	settings.bounds = settings.preserveExtrema
+		? {
+				x: [
+					Math.min(...points.map((point) => point.x)),
+					Math.max(...points.map((point) => point.x)),
+				],
+				y: [
+					Math.min(...points.map((point) => point.y)),
+					Math.max(...points.map((point) => point.y)),
+				],
+			}
+		: null;
+	const boundaries = [...anchors.keys()].sort(
+		(first, second) => first - second,
+	);
 	const result = [];
 	for (let index = 0; index < boundaries.length; index++) {
 		const start = boundaries[index];
 		const end = boundaries[(index + 1) % boundaries.length];
-		const span = start < end ? points.slice(start, end + 1)
-			: [...points.slice(start), ...points.slice(0, end + 1)];
+		const span =
+			start < end
+				? points.slice(start, end + 1)
+				: [...points.slice(start), ...points.slice(0, end + 1)];
 		const leftTangent = featureTangent(span, 0, 1, support, anchors.get(start));
-		const rightTangent = featureTangent(span, span.length - 1, -1, support, anchors.get(end));
+		const rightTangent = featureTangent(
+			span,
+			span.length - 1,
+			-1,
+			support,
+			anchors.get(end),
+		);
 		const curves = fitContourSpan(span, leftTangent, rightTangent, settings);
 		if (!curves) return path.map(cloneSegment);
 		result.push(...curves);
