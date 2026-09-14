@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<base href="/test/" />
+		<title>Bezier Simplify Lab</title>
+		<script>
+			(() => {
+				const param = new URLSearchParams(window.location.search).get(
+					'scoutTheme',
+				);
+				const theme =
+					param ||
+					(window.matchMedia('(prefers-color-scheme: dark)').matches
+						? 'dark'
+						: 'light');
+				document.documentElement.setAttribute('data-theme', theme);
+			})();
+		</script>
+		<style>
+			:root {
+				color-scheme: light;
+				--cp-bg: #f7f4ef;
+				--cp-bg-elevated: #fcfbf8;
+				--cp-surface: #ffffff;
+				--cp-surface-soft: #f5f5f5;
+				--cp-border: #dedede;
+				--cp-border-strong: #919191;
+				--cp-text: #242424;
+				--cp-text-muted: #5c5c5c;
+				--cp-text-soft: #6f6f6f;
+				--cp-accent: #b11f4b;
+				--cp-accent-hover: #9a1a41;
+				--cp-accent-soft: rgba(177, 31, 75, 0.08);
+				--cp-accent-fg: #ffffff;
+				--cp-success: #16a34a;
+				--cp-danger: #dc2626;
+				--cp-warning: #f59e0b;
+				--cp-link: #0078d4;
+				--cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+				--cp-overlay: rgba(255, 255, 255, 0.8);
+				--cp-panel: rgba(255, 255, 255, 0.86);
+				--cp-panel-strong: rgba(255, 255, 255, 0.96);
+				--cp-sheen: rgba(255, 255, 255, 0.55);
+				--cp-highlight: rgba(177, 31, 75, 0.12);
+			}
+			html[data-theme='dark'] {
+				color-scheme: dark;
+				--cp-bg: #3d3b3a;
+				--cp-bg-elevated: #343231;
+				--cp-surface: #292929;
+				--cp-surface-soft: #2e2e2e;
+				--cp-border: #474747;
+				--cp-border-strong: #5f5f5f;
+				--cp-text: #dedede;
+				--cp-text-muted: #919191;
+				--cp-text-soft: #b0b0b0;
+				--cp-accent: #fd8ea1;
+				--cp-accent-hover: #fb7b91;
+				--cp-accent-soft: rgba(253, 142, 161, 0.14);
+				--cp-accent-fg: #1a1a1a;
+				--cp-success: #4ade80;
+				--cp-danger: #f87171;
+				--cp-warning: #fbbf24;
+				--cp-link: #4da6ff;
+				--cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+				--cp-overlay: rgba(41, 41, 41, 0.88);
+				--cp-panel: rgba(41, 41, 41, 0.72);
+				--cp-panel-strong: rgba(41, 41, 41, 0.96);
+				--cp-sheen: rgba(255, 255, 255, 0.04);
+				--cp-highlight: rgba(253, 142, 161, 0.12);
+			}
+			* {
+				box-sizing: border-box;
+			}
+			html,
+			body {
+				min-height: 100%;
+			}
+			body {
+				margin: 0;
+				background-color: var(--cp-bg);
+				background-image: repeating-linear-gradient(
+					135deg,
+					var(--cp-bg) 0,
+					var(--cp-bg) 24px,
+					var(--cp-bg-elevated) 24px,
+					var(--cp-bg-elevated) 25px
+				);
+				color: var(--cp-text);
+				font-family:
+					'Segoe UI',
+					Aptos,
+					Calibri,
+					-apple-system,
+					BlinkMacSystemFont,
+					sans-serif;
+			}
+			button,
+			input,
+			select {
+				font: inherit;
+			}
+			.app {
+				height: 100vh;
+				min-height: 600px;
+				display: grid;
+				grid-template-rows: auto auto minmax(0, 1fr);
+			}
+			header {
+				display: flex;
+				align-items: baseline;
+				justify-content: space-between;
+				gap: 24px;
+				padding: 20px 28px;
+				border-bottom: 1px solid var(--cp-border);
+				background: var(--cp-panel-strong);
+			}
+			h1 {
+				margin: 0;
+				font-size: 21px;
+				font-weight: 650;
+				letter-spacing: 0;
+			}
+			.status {
+				color: var(--cp-text-muted);
+				font:
+					12px Consolas,
+					'Courier New',
+					Courier,
+					monospace;
+			}
+			.controls {
+				display: grid;
+				grid-template-columns:
+					minmax(180px, 1.25fr) repeat(2, minmax(190px, 1fr))
+					auto auto;
+				gap: 20px;
+				align-items: end;
+				padding: 16px 28px 20px;
+				border-bottom: 1px solid var(--cp-border);
+				background: var(--cp-panel);
+			}
+			.control {
+				display: grid;
+				gap: 7px;
+				min-width: 0;
+			}
+			.control > label,
+			.toggle-label {
+				color: var(--cp-text-muted);
+				font-size: 12px;
+				font-weight: 600;
+			}
+			.control-heading {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+			}
+			.auto-toggle {
+				display: flex;
+				align-items: center;
+				gap: 5px;
+				color: var(--cp-text-muted);
+				font-size: 12px;
+				font-weight: 600;
+			}
+			.auto-toggle input {
+				accent-color: var(--cp-accent);
+			}
+			.range-row.is-auto input {
+				opacity: 0.65;
+			}
+			.range-row {
+				display: grid;
+				grid-template-columns: minmax(80px, 1fr) 64px;
+				gap: 8px;
+				align-items: center;
+			}
+			select,
+			input[type='number'] {
+				width: 100%;
+				height: 36px;
+				border: 1px solid var(--cp-border-strong);
+				border-radius: 6px;
+				background: var(--cp-surface);
+				color: var(--cp-text);
+				padding: 0 10px;
+			}
+			input[type='range'] {
+				width: 100%;
+				accent-color: var(--cp-accent);
+			}
+			.toggle {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				height: 36px;
+				white-space: nowrap;
+			}
+			.toggle input {
+				width: 17px;
+				height: 17px;
+				accent-color: var(--cp-accent);
+			}
+			.workspace {
+				min-height: 0;
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 1px;
+				background: var(--cp-border);
+			}
+			.viewport {
+				min-width: 0;
+				min-height: 0;
+				display: grid;
+				grid-template-rows: auto minmax(0, 1fr);
+				background: var(--cp-surface);
+			}
+			.viewport-header {
+				display: flex;
+				justify-content: space-between;
+				gap: 16px;
+				padding: 14px 18px;
+				border-bottom: 1px solid var(--cp-border);
+			}
+			.viewport-title {
+				margin: 0;
+				font-size: 14px;
+				font-weight: 650;
+			}
+			.metric {
+				color: var(--cp-text-muted);
+				font:
+					12px Consolas,
+					'Courier New',
+					Courier,
+					monospace;
+			}
+			.canvas-wrap {
+				position: relative;
+				min-height: 0;
+				overflow: hidden;
+				background: var(--cp-surface-soft);
+			}
+			canvas {
+				position: absolute;
+				inset: 0;
+				display: block;
+				width: 100%;
+				height: 100%;
+			}
+			.error {
+				color: var(--cp-danger);
+			}
+			@media (max-width: 860px) {
+				.app {
+					height: auto;
+					min-height: 100vh;
+				}
+				.controls {
+					grid-template-columns: 1fr 1fr;
+				}
+				.control:first-child {
+					grid-column: 1 / -1;
+				}
+				.workspace {
+					grid-template-columns: 1fr;
+				}
+				.viewport {
+					grid-template-rows: auto 360px;
+				}
+			}
+			@media (max-width: 520px) {
+				header,
+				.controls {
+					padding-left: 16px;
+					padding-right: 16px;
+				}
+				header {
+					align-items: center;
+				}
+				.controls {
+					grid-template-columns: 1fr;
+				}
+				.control:first-child {
+					grid-column: auto;
+				}
+				.viewport {
+					grid-template-rows: auto 300px;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="app">
+			<header>
+				<h1>Bezier Simplify Lab</h1>
+				<div class="status" id="status">Loading sample</div>
+			</header>
+			<section class="controls" aria-label="Simplification settings">
+				<div class="control">
+					<label for="sample">Sample curve</label>
+					<select id="sample"></select>
+				</div>
+				<div class="control">
+					<label for="tolerance">Tolerance</label>
+					<div class="range-row">
+						<input
+							id="tolerance"
+							type="range"
+							min="0"
+							max="100"
+							step="0.25"
+							value="5"
+						/>
+						<input
+							id="toleranceValue"
+							type="number"
+							min="0"
+							max="1000"
+							step="0.25"
+							value="5"
+							title="Tolerance value"
+						/>
+					</div>
+				</div>
+				<div class="control">
+					<div class="control-heading">
+						<label for="cornerAngle">Corner angle</label>
+						<label class="auto-toggle"
+							><input id="autoCornerAngle" type="checkbox" checked />Auto</label
+						>
+					</div>
+					<div class="range-row" id="cornerAngleRow">
+						<input
+							id="cornerAngle"
+							type="range"
+							min="0"
+							max="180"
+							step="1"
+							value="30"
+						/>
+						<input
+							id="cornerAngleValue"
+							type="number"
+							min="0"
+							max="180"
+							step="1"
+							value="30"
+							title="Corner angle value"
+						/>
+					</div>
+				</div>
+				<label class="toggle"
+					><input id="preserveExtrema" type="checkbox" checked /><span
+						class="toggle-label"
+						>Preserve extrema</span
+					></label
+				>
+				<label class="toggle"
+					><input id="showHandles" type="checkbox" /><span class="toggle-label"
+						>Show handles</span
+					></label
+				>
+			</section>
+			<main class="workspace">
+				<section class="viewport">
+					<div class="viewport-header">
+						<h2 class="viewport-title">Original</h2>
+						<span class="metric" id="originalMetric">0 segments</span>
+					</div>
+					<div class="canvas-wrap"><canvas id="originalCanvas"></canvas></div>
+				</section>
+				<section class="viewport">
+					<div class="viewport-header">
+						<h2 class="viewport-title">Simplified</h2>
+						<span class="metric" id="simplifiedMetric">0 segments</span>
+					</div>
+					<div class="canvas-wrap"><canvas id="simplifiedCanvas"></canvas></div>
+				</section>
+			</main>
+		</div>
+		<script type="module">
+			import {
+				calculateCornerAngleThreshold,
+				simplifyPath,
+			} from '../src/index.js';
+
+			const samples = [
+				'01-square.json',
+				'02-triangle.json',
+				'03-hexagon.json',
+				'04-rounded-square.json',
+				'05-circle.json',
+				'06-star.json',
+				'07-wavy-shape.json',
+				'08-heart.json',
+				'09-flower.json',
+				'10-complex-curve.json',
+				'11-glyph.json',
+				'12-glyph.json',
+				'13-block-l.json',
+				'14-block-l-2.json',
+				'15-glyph-s-stress.json',
+				'16-glyph-x-stress.json',
+				'17-glyph-2-stress.json',
+			];
+			const elements = Object.fromEntries(
+				[
+					'sample',
+					'tolerance',
+					'toleranceValue',
+					'cornerAngle',
+					'cornerAngleValue',
+					'autoCornerAngle',
+					'cornerAngleRow',
+					'preserveExtrema',
+					'showHandles',
+					'status',
+					'originalCanvas',
+					'simplifiedCanvas',
+					'originalMetric',
+					'simplifiedMetric',
+				].map((id) => [id, document.getElementById(id)]),
+			);
+			let original = [];
+			let simplified = [];
+
+			for (const fileName of samples) {
+				const option = document.createElement('option');
+				option.value = fileName;
+				option.textContent = fileName
+					.replace(/\.json$/, '')
+					.replace(/^\d+-/, '')
+					.replaceAll('-', ' ');
+				elements.sample.append(option);
+			}
+
+			function css(name) {
+				return getComputedStyle(document.documentElement)
+					.getPropertyValue(name)
+					.trim();
+			}
+
+			function pointForControl(control, endpoint) {
+				return control === false ? endpoint : control;
+			}
+
+			function boundsFor(loop) {
+				const points = loop.flatMap(([start, cp1, cp2, end]) => [
+					start,
+					pointForControl(cp1, start),
+					pointForControl(cp2, end),
+					end,
+				]);
+				return {
+					minX: Math.min(...points.map((point) => point.x)),
+					maxX: Math.max(...points.map((point) => point.x)),
+					minY: Math.min(...points.map((point) => point.y)),
+					maxY: Math.max(...points.map((point) => point.y)),
+				};
+			}
+
+			function resizeCanvas(canvas) {
+				const ratio = window.devicePixelRatio || 1;
+				const rect = canvas.getBoundingClientRect();
+				canvas.width = Math.max(1, Math.round(rect.width * ratio));
+				canvas.height = Math.max(1, Math.round(rect.height * ratio));
+				return { width: rect.width, height: rect.height, ratio };
+			}
+
+			function draw(canvas, loop, bounds, color) {
+				const { width, height, ratio } = resizeCanvas(canvas);
+				const context = canvas.getContext('2d');
+				context.scale(ratio, ratio);
+				context.clearRect(0, 0, width, height);
+				const padding = 42;
+				const spanX = Math.max(1, bounds.maxX - bounds.minX);
+				const spanY = Math.max(1, bounds.maxY - bounds.minY);
+				const scale = Math.min(
+					(width - padding * 2) / spanX,
+					(height - padding * 2) / spanY,
+				);
+				const offsetX = (width - spanX * scale) / 2 - bounds.minX * scale;
+				const offsetY = (height - spanY * scale) / 2 - bounds.minY * scale;
+				const map = (point) => ({
+					x: point.x * scale + offsetX,
+					y: point.y * scale + offsetY,
+				});
+
+				if (elements.showHandles.checked) {
+					context.strokeStyle = css('--cp-border-strong');
+					context.fillStyle = css('--cp-surface');
+					context.lineWidth = 1;
+					for (const [start, cp1, cp2, end] of loop) {
+						const mappedStart = map(start);
+						const mappedEnd = map(end);
+						const mappedCp1 = map(pointForControl(cp1, start));
+						const mappedCp2 = map(pointForControl(cp2, end));
+						context.beginPath();
+						context.moveTo(mappedStart.x, mappedStart.y);
+						context.lineTo(mappedCp1.x, mappedCp1.y);
+						context.moveTo(mappedEnd.x, mappedEnd.y);
+						context.lineTo(mappedCp2.x, mappedCp2.y);
+						context.stroke();
+						for (const point of [mappedCp1, mappedCp2]) {
+							context.beginPath();
+							context.arc(point.x, point.y, 3, 0, Math.PI * 2);
+							context.fill();
+							context.stroke();
+						}
+					}
+				}
+
+				context.beginPath();
+				const first = map(loop[0][0]);
+				context.moveTo(first.x, first.y);
+				for (const [start, cp1, cp2, end] of loop) {
+					const mappedEnd = map(end);
+					if (cp1 === false && cp2 === false) {
+						context.lineTo(mappedEnd.x, mappedEnd.y);
+					} else {
+						const mappedCp1 = map(pointForControl(cp1, start));
+						const mappedCp2 = map(pointForControl(cp2, end));
+						context.bezierCurveTo(
+							mappedCp1.x,
+							mappedCp1.y,
+							mappedCp2.x,
+							mappedCp2.y,
+							mappedEnd.x,
+							mappedEnd.y,
+						);
+					}
+				}
+				context.strokeStyle = color;
+				context.lineWidth = 2.5;
+				context.lineJoin = 'round';
+				context.stroke();
+			}
+
+			function render() {
+				if (!original.length) return;
+				try {
+					const cornerAngleThreshold = elements.autoCornerAngle.checked
+						? 'auto'
+						: Number(elements.cornerAngleValue.value);
+					simplified = simplifyPath(original, {
+						tolerance: Number(elements.toleranceValue.value),
+						cornerAngleThreshold,
+						preserveExtrema: elements.preserveExtrema.checked,
+					});
+					const bounds = boundsFor(original);
+					draw(
+						elements.originalCanvas,
+						original,
+						bounds,
+						css('--cp-text-soft'),
+					);
+					draw(
+						elements.simplifiedCanvas,
+						simplified,
+						bounds,
+						css('--cp-accent'),
+					);
+					const removed = original.length - simplified.length;
+					const reduction = Math.round((removed / original.length) * 100);
+					elements.originalMetric.textContent = `${original.length} segments`;
+					elements.simplifiedMetric.textContent = `${simplified.length} segments · ${reduction}% reduction`;
+					elements.status.classList.remove('error');
+					elements.status.textContent = `${removed} removed`;
+				} catch (error) {
+					elements.status.classList.add('error');
+					elements.status.textContent = error.message;
+				}
+			}
+
+			async function loadSample() {
+				elements.status.textContent = 'Loading sample';
+				const response = await fetch(
+					`./sample-curves/${elements.sample.value}`,
+				);
+				if (!response.ok)
+					throw new Error(`Could not load ${elements.sample.value}`);
+				original = await response.json();
+				if (elements.autoCornerAngle.checked) {
+					const calculatedAngle = calculateCornerAngleThreshold(original);
+					elements.cornerAngle.value = calculatedAngle;
+					elements.cornerAngleValue.value = calculatedAngle;
+				}
+				render();
+			}
+
+			function bindPair(range, number) {
+				range.addEventListener('input', () => {
+					number.value = range.value;
+					render();
+				});
+				number.addEventListener('input', () => {
+					range.value = number.value;
+					render();
+				});
+			}
+
+			bindPair(elements.tolerance, elements.toleranceValue);
+			bindPair(elements.cornerAngle, elements.cornerAngleValue);
+			function updateCornerAngleMode() {
+				const isAuto = elements.autoCornerAngle.checked;
+				elements.cornerAngle.disabled = isAuto;
+				elements.cornerAngleValue.disabled = isAuto;
+				elements.cornerAngleRow.classList.toggle('is-auto', isAuto);
+				if (isAuto && original.length) {
+					const calculatedAngle = calculateCornerAngleThreshold(original);
+					elements.cornerAngle.value = calculatedAngle;
+					elements.cornerAngleValue.value = calculatedAngle;
+				}
+				render();
+			}
+			elements.autoCornerAngle.addEventListener(
+				'change',
+				updateCornerAngleMode,
+			);
+			updateCornerAngleMode();
+			elements.sample.addEventListener('change', () =>
+				loadSample().catch(showError),
+			);
+			elements.preserveExtrema.addEventListener('change', render);
+			elements.showHandles.addEventListener('change', render);
+			new ResizeObserver(render).observe(document.querySelector('.workspace'));
+			function showError(error) {
+				elements.status.classList.add('error');
+				elements.status.textContent = error.message;
+			}
+			loadSample().catch(showError);
+		</script>
+	</body>
+</html>

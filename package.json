@@ -1,0 +1,34 @@
+{
+	"name": "bezier-simplify",
+	"version": "1.1.0",
+	"description": "Simplify connected cubic Bezier paths while preserving their shape.",
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/bezier-simplify.js"
+		}
+	},
+	"main": "./dist/bezier-simplify.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist",
+		"README.md",
+		"LICENSE"
+	],
+	"scripts": {
+		"build": "node scripts/build.mjs",
+		"test": "node --test",
+		"test:app": "node scripts/serve-test-app.mjs"
+	},
+	"keywords": [
+		"bezier",
+		"curve",
+		"geometry",
+		"simplify"
+	],
+	"license": "MIT",
+	"engines": {
+		"node": ">=18"
+	}
+}
