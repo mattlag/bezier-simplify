@@ -3,7 +3,7 @@
 A zero-dependency JavaScript library for reducing the number of segments in a
 closed cubic Bezier path while keeping the result within a geometric tolerance.
 Fine tuned with typographic Bezier curves in mind, but generally useful for 
-lots of use cases.
+lots of use cases. ✌️
 
 ## Install
 
